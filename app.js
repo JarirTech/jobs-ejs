@@ -1,106 +1,82 @@
 
-
 const express = require("express");
 require("express-async-errors");
+require("dotenv").config();
 
 const app = express();
 
-// Load environment variables
-require("dotenv").config();
-
-// Middleware
+//VIEW ENGINE & BODY PARSERS  
 app.set("view engine", "ejs");
 app.use(require("body-parser").urlencoded({ extended: true }));
-app.use(express.json()); // Optional: allows JSON body parsing
-app.use(require("connect-flash")());
+app.use(express.json());                               
 
+//SESSION STORE  
 const session = require("express-session");
 const MongoDBStore = require("connect-mongodb-session")(session);
 
-const url = process.env.MONGO_URI;
-
 const store = new MongoDBStore({
-  uri: url,
+  uri: process.env.MONGO_URI,
   collection: "mySessions",
 });
-
-store.on("error", function (error) {
-  console.log(error);
-});
+store.on("error", console.error);
 
 const sessionParms = {
-  secret: process.env.SESSION_SECRET,
-  resave: true,
-  saveUninitialized: true,
-  store: store,
+  secret: process.env.SESSION_SECRET || "dev secret",
+  resave: false,              
+  saveUninitialized: false,  
+  store,
   cookie: {
-    secure: false,
+    secure: false,              
     httpOnly: true,
     sameSite: "strict",
   },
 };
 
 if (app.get("env") === "production") {
-  app.set("trust proxy", 1);
-  sessionParms.cookie.secure = true; // Use secure cookies in production
+  app.set("trust proxy", 1);            
+  sessionParms.cookie.secure = true;    
 }
 
 app.use(session(sessionParms));
 
-// Passport setup
+//PASSPORT  
 const passport = require("passport");
-const passportInit = require("./passport/passportInit");
-passportInit(passport); // Pass passport to initializer
-
+require("./passport/passportInit")(passport);          
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Store flash messages and user in locals
-app.use(require("./middleware/storeLocals"));
+//FLASH & LOCALS  
+app.use(require("connect-flash")());                   
+app.use(require("./middleware/storeLocals"));          
 
-// Routes
-
-// Home route
-app.get("/", (req, res) => {
-  res.render("index");
-});
-
-// Secret word logic
-
+//ROUTES  
+app.get("/", (req, res) => res.render("index"));
 
 const auth = require("./middleware/auth");
-
-const secretWordRouter = require("./routes/secretWord");
-app.use("/secretWord", auth, secretWordRouter);
-
-
-
-// Session routes
+app.use("/secretWord", auth, require("./routes/secretWord"));
 app.use("/sessions", require("./routes/sessionRoutes"));
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).send(`That page (${req.url}) was not found.`);
-});
+//404 & ERROR HANDLERS  
+app.use((req, res) =>
+  res.status(404).send(`That page (${req.url}) was not found.`)
+);
 
-// General error handler
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).send(err.message);
 });
 
-// Server start
-const port = process.env.PORT || 3000;
+//Start SERVER  
+const PORT = process.env.PORT || 3000;
 
-const start = async () => {
+(async () => {
   try {
     await require("./db/connect")(process.env.MONGO_URI);
-    app.listen(port, () =>
-      console.log(`Server is listening on port ${port}...`)
-    );
-  } catch (error) {
-    console.log(error);
+    app.listen(PORT, () => console.log(`Server listening on ${PORT}…`));
+  } catch (err) {
+    console.error(err);
   }
-};
+})
+();
 
-start();
+
