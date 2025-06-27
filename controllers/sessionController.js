@@ -8,8 +8,9 @@ const registerShow = (req, res) => {
 const registerDo = async (req, res, next) => {
   if (req.body.password != req.body.password1) {
     req.flash("error", "The passwords entered do not match.");
-    return res.render("register", {  errors: flash("errors") });
+    return res.render("register", { errors: req.flash("error") });
   }
+
   try {
     await User.create(req.body);
   } catch (e) {
@@ -20,19 +21,13 @@ const registerDo = async (req, res, next) => {
     } else {
       return next(e);
     }
-    return res.render("register", {  errors: flash("errors") });
+    return res.render("register", { errors: req.flash("error") });
   }
+
   res.redirect("/");
 };
 
-const logoff = (req, res) => {
-  req.session.destroy(function (err) {
-    if (err) {
-      console.log(err);
-    }
-    res.redirect("/");
-  });
-};
+
 
 const logonShow = (req, res) => {
   if (req.user) {
@@ -41,6 +36,14 @@ const logonShow = (req, res) => {
   res.render("logon", {
 //     errors: req.flash("error"),
 //     info: req.flash("info"),
+  });
+};
+const logoff = (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error(err);
+    }
+    res.redirect("/");
   });
 };
 
